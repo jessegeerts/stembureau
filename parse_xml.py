@@ -49,7 +49,7 @@ def candidate_present(node, ns):
     return False
 
 
-def get_relevant_data(root_node, namespace):
+def get_relevant_data(root_node, namespace, all_candidates=False):
     """Deze functie haalt de relevante data uit de parsed etree, en stopt het in een python nested dictionary. 
     
     De input voor de functie is wat ik nu de root node hebt genoemd, dus het hoogste deel van de tree. 
@@ -61,6 +61,7 @@ def get_relevant_data(root_node, namespace):
     """
     data = {}
     data['IDs'] = []
+    n_candidates_processed = 0
     for node in root_node:
         if node.tag == namespace + 'ReportingUnitIdentifier':
             data['ReportingUnitIdentifier'] = node.attrib.get('Id')
@@ -71,6 +72,7 @@ def get_relevant_data(root_node, namespace):
             name_present = check_for_registered_name(node, namespace)
             # if name is present, this is the node defining the party. if not it will be a specific candidate (I think)
             if name_present:
+                n_candidates_processed = 0
                 for child in node:
                     if child.tag == namespace + 'AffiliationIdentifier':
                         affiliation_id = int(child.attrib.get('Id'))
@@ -82,12 +84,16 @@ def get_relevant_data(root_node, namespace):
                         data[affiliation_id]['ValidVotes'] = child.text
             elif candidate_present(node, ns):
                 # if its a candidate, we write each candidate to the dictionary corresponding to the party
+                if not all_candidates:
+                    if n_candidates_processed > 0:
+                        continue
                 for child in node:
                     if child.tag == namespace + 'Candidate':
                         candidate_id = int(child[0].attrib.get('Id'))
                         data[affiliation_id][candidate_id] = {}
                     elif child.tag == namespace + 'ValidVotes':
                         data[affiliation_id][candidate_id]['ValidVotes'] = child.text
+                n_candidates_processed += 1
     return data
 
 
@@ -139,6 +145,8 @@ if __name__ == "__main__":
     from tqdm import tqdm
     import glob
 
+    all_candidates = False  # if True, all candidates are included. If False, only lijsttrekkers
+
     path = os.getcwd()
 
     xml_files = glob.glob(os.path.join(path, '*.xml'))
@@ -161,9 +169,10 @@ if __name__ == "__main__":
 
         dataframes = []
         for s in tqdm(stembureaus, leave=False, desc='Stembureau'):
-            data = get_relevant_data(s, ns)
+            data = get_relevant_data(s, ns, all_candidates=all_candidates)
 
-            check_vote_totals()  # checken of het totale aantal stemmen klopt per partij (= som van alle kandidaten)
+            if all_candidates:
+                check_vote_totals()  # checken of het totale aantal stemmen klopt per partij (= som van alle kandidaten)
 
             df = get_dataframe(data)
             dataframes.append(df)
