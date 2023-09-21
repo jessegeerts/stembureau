@@ -175,7 +175,7 @@ if __name__ == "__main__":
                 check_vote_totals()  # checken of het totale aantal stemmen klopt per partij (= som van alle kandidaten)
 
             df = get_dataframe(data)
-            dataframes.append(df)
+            dataframes.append(df.reset_index())
 
         try:
             council_data = pd.concat(dataframes, ignore_index=True)
